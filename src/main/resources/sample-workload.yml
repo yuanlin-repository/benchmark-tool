@@ -1,0 +1,26 @@
+name: sample-workload
+driverClass: github.yuanlin.driver.kafka.KafkaDriver
+driverConfig:
+  bootstrap.servers: "localhost:9092"
+  producer.acks: "all"
+
+producerConfig:
+  threadCount: 5
+  rateLimit: 10000
+  messageSizeBytes: 1024
+  topicName: test-topic
+  batchSize: 10
+
+consumerConfig:
+  threadCount: 5
+  topicName: test-topic
+  consumerGroup: test-group
+  batchSize: 100
+  pollTimeoutMs: 1000
+
+testConfig:
+  durationMs: 300000
+  warmupMs: 30000
+  targetPartitions: 1
+  enableProducer: true
+  enableConsumer: true
