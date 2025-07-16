@@ -10,11 +10,7 @@ import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.Producer;
-import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.clients.producer.RecordMetadata;
+import org.apache.kafka.clients.producer.*;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -60,7 +56,7 @@ public class KafkaDriver implements Driver {
 
     @Override
     public void createTopic(String topicName, int partitions) throws Exception {
-        NewTopic newTopic = new NewTopic(topicName, partitions, (short) 1);
+        NewTopic newTopic = new NewTopic(topicName, partitions, (short) -1);
         CreateTopicsResult result = adminClient.createTopics(Collections.singleton(newTopic));
 
         try {
@@ -114,14 +110,14 @@ public class KafkaDriver implements Driver {
             props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
 
             // 性能优化配置
-            props.put(ProducerConfig.BATCH_SIZE_CONFIG, 16384);
-            props.put(ProducerConfig.LINGER_MS_CONFIG, 1);
-            props.put(ProducerConfig.BUFFER_MEMORY_CONFIG, 33554432);
-            props.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, "lz4");
-            props.put(ProducerConfig.ACKS_CONFIG, "1");
-            props.put(ProducerConfig.RETRIES_CONFIG, 3);
-            props.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, 5);
-            props.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, true);
+//            props.put(ProducerConfig.BATCH_SIZE_CONFIG, 16384);
+//            props.put(ProducerConfig.LINGER_MS_CONFIG, 1);
+//            props.put(ProducerConfig.BUFFER_MEMORY_CONFIG, 33554432);
+//            props.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, "lz4");
+            props.put(ProducerConfig.ACKS_CONFIG, "all");
+//            props.put(ProducerConfig.RETRIES_CONFIG, 3);
+//            props.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, 5);
+//            props.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, true);
 
             // 允许用户覆盖配置
             for (Map.Entry<String, Object> entry : driverConfig.entrySet()) {
@@ -135,42 +131,23 @@ public class KafkaDriver implements Driver {
         }
 
         @Override
-        public Future<SendResult> sendAsync(byte[] message) throws Exception {
+        public void sendAsync(byte[] message, Callback callback) throws Exception {
             long sendTime = System.currentTimeMillis();
-            String messageId = "msg-" + System.nanoTime();
-
-            ProducerRecord<String, byte[]> record = new ProducerRecord<>(topicName, messageId, message);
-
-            CompletableFuture<SendResult> future = new CompletableFuture<>();
-
-            producer.send(record, (metadata, exception) -> {
-                long receiveTime = System.currentTimeMillis();
-
-                if (exception != null) {
-                    SendResult result = new SendResult(false, sendTime,
-                            receiveTime - sendTime, messageId, exception);
-                    future.complete(result);
-                } else {
-                    SendResult result = new SendResult(true, sendTime,
-                            receiveTime - sendTime, messageId, null);
-                    future.complete(result);
-                }
-            });
-
-            return future;
+            ProducerRecord<String, byte[]> record = new ProducerRecord<>(topicName, message);
+            producer.send(record, callback);
         }
 
         @Override
         public SendResult sendSync(byte[] message) throws Exception {
             long sendTime = System.currentTimeMillis();
-            String messageId = "msg-" + System.nanoTime();
+            String messageId = "key" + System.nanoTime();
 
             ProducerRecord<String, byte[]> record = new ProducerRecord<>(topicName, messageId, message);
 
             try {
-                RecordMetadata metadata = producer.send(record).get();
+                Future<RecordMetadata> future = producer.send(record, (metadata, exception) -> {
+                });
                 long receiveTime = System.currentTimeMillis();
-
                 return new SendResult(true, sendTime,
                         receiveTime - sendTime, messageId, null);
             } catch (Exception e) {
@@ -201,11 +178,15 @@ public class KafkaDriver implements Driver {
             props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
             props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
             props.put(ConsumerConfig.GROUP_ID_CONFIG, consumerGroup);
-            props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-            props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
-            props.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, 500);
-            props.put(ConsumerConfig.FETCH_MIN_BYTES_CONFIG, 1);
-            props.put(ConsumerConfig.FETCH_MAX_WAIT_MS_CONFIG, 500);
+//            props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+//            props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
+            props.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, 500);      // 修正：合理的批量大小
+//            props.put(ConsumerConfig.FETCH_MIN_BYTES_CONFIG, 1024);      // 1KB
+//            props.put(ConsumerConfig.FETCH_MAX_WAIT_MS_CONFIG, 500);
+//            props.put(ConsumerConfig.FETCH_MAX_BYTES_CONFIG, 52428800);  // 50MB
+//            props.put(ConsumerConfig.MAX_PARTITION_FETCH_BYTES_CONFIG, 1048576); // 1MB
+//            props.put(ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG, 30000);
+//            props.put(ConsumerConfig.HEARTBEAT_INTERVAL_MS_CONFIG, 10000);
 
             // 允许用户覆盖配置
             for (Map.Entry<String, Object> entry : driverConfig.entrySet()) {

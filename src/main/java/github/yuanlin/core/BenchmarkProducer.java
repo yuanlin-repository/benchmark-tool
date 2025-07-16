@@ -1,5 +1,7 @@
 package github.yuanlin.core;
 
+import org.apache.kafka.clients.producer.Callback;
+
 import java.util.concurrent.Future;
 
 /**
@@ -8,7 +10,7 @@ import java.util.concurrent.Future;
  * @description TODO
  */
 public interface BenchmarkProducer {
-    Future<SendResult> sendAsync(byte[] message) throws Exception;
+    void sendAsync(byte[] message, Callback callback) throws Exception;
 
     SendResult sendSync(byte[] message) throws Exception;
 

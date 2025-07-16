@@ -3,6 +3,9 @@ package github.yuanlin.worker;
 import github.yuanlin.core.*;
 import github.yuanlin.metrics.PrometheusMetricsCollector;
 import github.yuanlin.metrics.LocalMetricsCollector;
+import org.apache.kafka.clients.producer.Callback;
+import org.apache.kafka.clients.producer.RecordMetadata;
+
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -310,34 +313,9 @@ public class BenchmarkWorker {
             long startTime = System.currentTimeMillis();
 
             try {
-                SendResult result = producer.sendSync(message);
-                long latency = System.currentTimeMillis() - startTime;
-//                logger.info("Send Message Success - latency:" + latency);
-
-                if (recordStats) {
-                    localCollector.incrementCounter("producer.total");
-
-                    if (result.isSuccess()) {
-                        localCollector.incrementCounter("producer.success");
-                        localCollector.recordLatency("producer.latency", latency);
-
-                        // 记录到Prometheus
-                        prometheusCollector.recordProducerMessageSent(
-                                config.getTopicName(), workerId, latency);
-                    } else {
-                        localCollector.incrementCounter("producer.error");
-                        prometheusCollector.recordProducerError(
-                                config.getTopicName(), workerId, "send_failed");
-                    }
-                }
-
+                producer.sendAsync(message, new PerfCallback(startTime, config.getTopicName(), workerId,
+                        recordStats, prometheusCollector, localCollector));
             } catch (Exception e) {
-                if (recordStats) {
-                    localCollector.incrementCounter("producer.total");
-                    localCollector.incrementCounter("producer.error");
-                    prometheusCollector.recordProducerError(
-                            config.getTopicName(), workerId, "exception");
-                }
                 throw e;
             }
         }
@@ -433,6 +411,7 @@ public class BenchmarkWorker {
                     // 记录到Prometheus
                     prometheusCollector.recordConsumerMessageReceived(
                             config.getTopicName(), workerId, config.getConsumerGroup(), latency);
+                    prometheusCollector.updateThroughput(config.getTopicName(), workerId, config.getConsumerGroup());
                 }
             }
 
@@ -485,4 +464,54 @@ public class BenchmarkWorker {
             lastTime = System.nanoTime();
         }
     }
+
+    static final class PerfCallback implements Callback {
+        private final long start;
+        private String topicName;
+        private String workerId;
+        private final boolean recordStats;
+        private final PrometheusMetricsCollector prometheusCollector;
+        private final LocalMetricsCollector localCollector;
+
+        public PerfCallback(long start, String topicName, String workerId, boolean recordStats,
+                            PrometheusMetricsCollector prometheusCollector, LocalMetricsCollector localCollector) {
+            this.start = start;
+            this.topicName = topicName;
+            this.workerId = workerId;
+            this.recordStats = recordStats;
+            this.localCollector = localCollector;
+            this.prometheusCollector = prometheusCollector;
+        }
+
+        public void onCompletion(RecordMetadata metadata, Exception exception) {
+
+            // It will only be counted when the sending is successful, otherwise the number of sent records may be
+            // magically printed when the sending fails.
+            if (exception == null) {
+                long latency = System.currentTimeMillis() - start;
+//                logger.info("Send Message Success - latency:" + latency);
+
+                if (recordStats) {
+                    localCollector.incrementCounter("producer.total");
+
+
+                    localCollector.incrementCounter("producer.success");
+                    localCollector.recordLatency("producer.latency", latency);
+
+                    // 记录到Prometheus
+                    prometheusCollector.recordProducerMessageSent(topicName, workerId, latency);
+                }
+            }
+
+            if (exception != null) {
+                if (recordStats) {
+                    localCollector.incrementCounter("producer.error");
+                    prometheusCollector.recordProducerError(
+                            topicName, workerId, "send_failed");
+                }
+            }
+        }
+    }
 }
+
+
