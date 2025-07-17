@@ -64,14 +64,14 @@ public class BenchmarkWorker {
                         config.getTestConfig().getTargetPartitions());
             }
 
-            // 启动生产者任务
-            if (config.getTestConfig().isEnableProducer()) {
-                startProducerTasks();
-            }
-
             // 启动消费者任务
             if (config.getTestConfig().isEnableConsumer()) {
                 startConsumerTasks();
+            }
+
+            // 启动生产者任务
+            if (config.getTestConfig().isEnableProducer()) {
+                startProducerTasks();
             }
 
             logger.info("Benchmark worker started: " + workerId);
@@ -238,7 +238,7 @@ public class BenchmarkWorker {
     }
 
     /**
-     * 生产者任务
+     * Producer Task
      */
     private class ProducerTask implements Runnable {
         private final BenchmarkProducer producer;
@@ -261,12 +261,12 @@ public class BenchmarkWorker {
             logger.info("Producer task started: " + taskId);
 
             try {
-                // 预热期
+                // warm up
                 if (BenchmarkWorker.this.config.getTestConfig().getWarmupMs() > 0) {
                     warmup();
                 }
 
-                // 正式测试
+                // formal benchmark
                 runTest();
 
             } catch (Exception e) {
@@ -287,7 +287,7 @@ public class BenchmarkWorker {
                     BenchmarkWorker.this.config.getTestConfig().getWarmupMs();
 
             while (running.get() && System.currentTimeMillis() < warmupEnd) {
-                sendMessage(false); // 预热期不记录统计
+                sendMessage(false);
 
                 if (rateLimiter != null) {
                     rateLimiter.acquire();
@@ -300,7 +300,7 @@ public class BenchmarkWorker {
                     BenchmarkWorker.this.config.getTestConfig().getDurationMs();
 
             while (running.get() && System.currentTimeMillis() < testEnd) {
-                sendMessage(true); // 正式测试记录统计
+                sendMessage(true);
 
                 if (rateLimiter != null) {
                     rateLimiter.acquire();
@@ -358,12 +358,12 @@ public class BenchmarkWorker {
             logger.info("Consumer task started: " + taskId);
 
             try {
-                // 预热期
+                // warm up
                 if (BenchmarkWorker.this.config.getTestConfig().getWarmupMs() > 0) {
                     warmup();
                 }
 
-                // 正式测试
+                // formal benchmark
                 runTest();
 
             } catch (Exception e) {
@@ -384,7 +384,7 @@ public class BenchmarkWorker {
                     BenchmarkWorker.this.config.getTestConfig().getWarmupMs();
 
             while (running.get() && System.currentTimeMillis() < warmupEnd) {
-                consumeMessages(false); // 预热期不记录统计
+                consumeMessages(false);
             }
         }
 
@@ -393,7 +393,7 @@ public class BenchmarkWorker {
                     BenchmarkWorker.this.config.getTestConfig().getDurationMs();
 
             while (running.get() && System.currentTimeMillis() < testEnd) {
-                consumeMessages(true); // 正式测试记录统计
+                consumeMessages(true);
             }
         }
 
@@ -415,7 +415,6 @@ public class BenchmarkWorker {
                 }
             }
 
-            // 提交offset
             if (!results.isEmpty()) {
                 consumer.commitOffset();
             }
@@ -423,13 +422,12 @@ public class BenchmarkWorker {
 
         private long calculateLatency(byte[] message, long receiveTime) {
             try {
-                // 从消息中提取时间戳
                 String timestampStr = new String(message, 0,
                         Math.min(13, message.length)); // 时间戳长度约13位
                 long sendTime = Long.parseLong(timestampStr.trim());
                 return receiveTime - sendTime;
             } catch (Exception e) {
-                return 0; // 无法计算延迟时返回0
+                return 0;
             }
         }
 
@@ -489,7 +487,6 @@ public class BenchmarkWorker {
             // magically printed when the sending fails.
             if (exception == null) {
                 long latency = System.currentTimeMillis() - start;
-//                logger.info("Send Message Success - latency:" + latency);
 
                 if (recordStats) {
                     localCollector.incrementCounter("producer.total");

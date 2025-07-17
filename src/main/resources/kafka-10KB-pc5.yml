@@ -1,4 +1,4 @@
-name: kafka-10KB-pc5.yml
+name: kafka-10KB-pc5
 driverClass: github.yuanlin.driver.kafka.KafkaDriver
 driverConfig:
   bootstrap.servers: "localhost:9092"

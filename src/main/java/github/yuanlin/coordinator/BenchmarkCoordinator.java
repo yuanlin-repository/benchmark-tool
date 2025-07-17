@@ -76,26 +76,54 @@ public class BenchmarkCoordinator {
      * 启动多个基准测试
      */
     public void startBenchmarks(List<String> configFilePaths) throws Exception {
-        if (running.compareAndSet(false, true)) {
-            logger.info("Starting multiple benchmarks");
+        for (String configFilePath : configFilePaths) {
+            if (running.compareAndSet(false, true)) {
+                logger.info("/------------------- Starting benchmark from config: " + configFilePath + "-------------/");
 
-            try {
-                List<WorkloadConfig> configs = new ArrayList<>();
-                for (String configPath : configFilePaths) {
-                    configs.add(parseConfig(configPath));
+                try {
+                    // 解析配置文件
+                    WorkloadConfig config = parseConfig(configFilePath);
+
+                    // 创建和启动Worker
+                    createAndStartWorkers(config);
+
+                    // 等待测试完成
+                    waitForTestCompletion(config);
+
+                    // 收集和输出结果
+                    collectAndOutputResults();
+
+                } catch (Exception e) {
+                    logger.log(Level.SEVERE, "Benchmark failed", e);
+                    throw e;
+                } finally {
+                    stopAllWorkers();
+                    running.set(false);
                 }
-
-                // 并行运行多个测试
-                runBenchmarksParallel(configs);
-
-            } catch (Exception e) {
-                logger.log(Level.SEVERE, "Multiple benchmarks failed", e);
-                throw e;
-            } finally {
-                stopAllWorkers();
-                running.set(false);
             }
+            logger.log(Level.INFO, "/------------------- Finish " + configFilePath + "test -------------/");
+            Thread.sleep(10000);
         }
+//        if (running.compareAndSet(false, true)) {
+//            logger.info("Starting multiple benchmarks");
+//
+//            try {
+//                List<WorkloadConfig> configs = new ArrayList<>();
+//                for (String configPath : configFilePaths) {
+//                    configs.add(parseConfig(configPath));
+//                }
+//
+//                // 并行运行多个测试
+//                runBenchmarksParallel(configs);
+//
+//            } catch (Exception e) {
+//                logger.log(Level.SEVERE, "Multiple benchmarks failed", e);
+//                throw e;
+//            } finally {
+//                stopAllWorkers();
+//                running.set(false);
+//            }
+//        }
     }
 
     /**
@@ -156,7 +184,7 @@ public class BenchmarkCoordinator {
     }
 
     private WorkloadConfig parseConfig(String configFilePath) throws IOException {
-        InputStream inputStream =  BenchmarkCoordinator.class.getClassLoader().getResourceAsStream(configFilePath);
+        InputStream inputStream = BenchmarkCoordinator.class.getClassLoader().getResourceAsStream(configFilePath);
         if (inputStream == null) {
             throw new IOException("Resource file " + configFilePath + " not found in classpath.");
         }
