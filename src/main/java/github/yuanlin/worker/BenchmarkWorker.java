@@ -243,6 +243,7 @@ public class BenchmarkWorker {
     private class ProducerTask implements Runnable {
         private final BenchmarkProducer producer;
         private final WorkloadConfig.ProducerConfig config;
+        private volatile byte[] msg;
         private final int taskId;
         private final AtomicBoolean running = new AtomicBoolean(true);
         private final RateLimiter rateLimiter;
@@ -321,16 +322,18 @@ public class BenchmarkWorker {
         }
 
         private byte[] generateMessage() {
-            byte[] message = new byte[config.getMessageSizeBytes()];
-            random.nextBytes(message);
+            if (msg == null) {
+                msg = new byte[config.getMessageSizeBytes()];
+                random.nextBytes(msg);
+            }
 
             // 添加时间戳用于计算端到端延迟
             String timestamp = String.valueOf(System.currentTimeMillis());
             byte[] timestampBytes = timestamp.getBytes();
-            System.arraycopy(timestampBytes, 0, message, 0,
-                    Math.min(timestampBytes.length, message.length));
+            System.arraycopy(timestampBytes, 0, msg, 0,
+                    Math.min(timestampBytes.length, msg.length));
 
-            return message;
+            return msg;
         }
 
         public void stop() {
