@@ -6,20 +6,20 @@ import github.yuanlin.metrics.LocalMetricsCollector;
 import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.RecordMetadata;
 
+import com.google.common.util.concurrent.RateLimiter;
+
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Random;
-import java.util.UUID;
 import java.util.logging.Logger;
 import java.util.logging.Level;
 
 /**
  * @author yuanlin.zhou
  * @date 2025/7/10 14:57
- * @description TODO
+ * @description Benchmark Worker with improved rate limiting using Guava RateLimiter
  */
 public class BenchmarkWorker {
     private static final Logger logger = Logger.getLogger(BenchmarkWorker.class.getName());
@@ -238,7 +238,7 @@ public class BenchmarkWorker {
     }
 
     /**
-     * Producer Task
+     * Producer Task - 使用Guava RateLimiter
      */
     private class ProducerTask implements Runnable {
         private final BenchmarkProducer producer;
@@ -253,8 +253,11 @@ public class BenchmarkWorker {
             this.producer = producer;
             this.config = config;
             this.taskId = taskId;
+
+            // 使用Guava RateLimiter创建限流器
+            // 每个线程分配总速率的一部分
             this.rateLimiter = config.getRateLimit() > 0 ?
-                    new RateLimiter(config.getRateLimit() / config.getThreadCount()) : null;
+                    RateLimiter.create((double) config.getRateLimit() / config.getThreadCount()) : null;
         }
 
         @Override
@@ -290,6 +293,7 @@ public class BenchmarkWorker {
             while (running.get() && System.currentTimeMillis() < warmupEnd) {
                 sendMessage(false);
 
+                // 使用Guava RateLimiter进行限流
                 if (rateLimiter != null) {
                     rateLimiter.acquire();
                 }
@@ -303,6 +307,7 @@ public class BenchmarkWorker {
             while (running.get() && System.currentTimeMillis() < testEnd) {
                 sendMessage(true);
 
+                // 使用Guava RateLimiter进行限流
                 if (rateLimiter != null) {
                     rateLimiter.acquire();
                 }
@@ -439,33 +444,6 @@ public class BenchmarkWorker {
         }
     }
 
-    /**
-     * 简单的速率限制器
-     */
-    private static class RateLimiter {
-        private final long intervalNs;
-        private long lastTime = System.nanoTime();
-
-        public RateLimiter(int ratePerSecond) {
-            this.intervalNs = 1_000_000_000L / ratePerSecond;
-        }
-
-        public synchronized void acquire() {
-            long currentTime = System.nanoTime();
-            long elapsedTime = currentTime - lastTime;
-
-            if (elapsedTime < intervalNs) {
-                try {
-                    Thread.sleep((intervalNs - elapsedTime) / 1_000_000);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
-            }
-
-            lastTime = System.nanoTime();
-        }
-    }
-
     static final class PerfCallback implements Callback {
         private final long start;
         private String topicName;
@@ -493,8 +471,6 @@ public class BenchmarkWorker {
 
                 if (recordStats) {
                     localCollector.incrementCounter("producer.total");
-
-
                     localCollector.incrementCounter("producer.success");
                     localCollector.recordLatency("producer.latency", latency);
 
@@ -513,5 +489,3 @@ public class BenchmarkWorker {
         }
     }
 }
-
-
