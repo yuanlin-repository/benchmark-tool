@@ -464,7 +464,6 @@ public class BenchmarkWorker {
         @Override
         public void onCompletion() {
             long latency = System.currentTimeMillis() - start;
-            logger.info("Producer Execute onCompletion");
 
             if (recordStats) {
                 localCollector.incrementCounter("producer.total");
