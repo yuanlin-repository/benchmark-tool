@@ -157,21 +157,15 @@ public class RocketMQDriver implements Driver {
                     .setBody(message)
                     .build();
 
-            // 使用异步发送
-            ListenableFuture<SendReceipt> future = (ListenableFuture<SendReceipt>) producer.sendAsync(msg);
+            CompletableFuture<SendReceipt> future = producer.sendAsync(msg);
 
-            Futures.addCallback(future, new FutureCallback<SendReceipt>() {
-                @Override
-                public void onSuccess(SendReceipt sendReceipt) {
+            future.whenComplete((sendReceipt, throwable) -> {
+                if (throwable != null) {
+                    callback.onException();
+                } else {
                     callback.onCompletion();
                 }
-
-                @Override
-                public void onFailure(Throwable throwable) {
-                    callback.onException();
-
-                }
-            }, MoreExecutors.directExecutor());
+            });
         }
 
         @Override
@@ -223,14 +217,12 @@ public class RocketMQDriver implements Driver {
 
             // 创建过滤表达式
             FilterExpression filterExpression = new FilterExpression("*", FilterExpressionType.TAG);
-            Map<String, FilterExpression> subscriptionExpressions = new HashMap<>();
-            subscriptionExpressions.put(topicName, filterExpression);
 
             // 创建PushConsumer
             this.consumer = provider.newPushConsumerBuilder()
                     .setClientConfiguration(clientConfiguration)
                     .setConsumerGroup(consumerGroup)
-                    .setSubscriptionExpressions(subscriptionExpressions)
+                    .setSubscriptionExpressions(Collections.singletonMap(topicName, filterExpression))
                     .setMessageListener(messageView -> {
                         try {
                             long receiveTime = System.currentTimeMillis();

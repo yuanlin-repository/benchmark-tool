@@ -1,7 +1,7 @@
 name: rocketmq-1KB-pc1
 driverClass: github.yuanlin.driver.rocketmq.RocketMQDriver
 driverConfig:
-  proxy.endpoints: localhost:8080,localhost:8081
+  proxy.endpoints: localhost:8080
   request.timeout.ms: 30000
   namespace: default
 
