@@ -1,0 +1,26 @@
+name: kafka-10KB-pt4
+driverClass: github.yuanlin.driver.kafka.KafkaDriver
+driverConfig:
+  bootstrap.servers: "localhost:9092"
+  producer.acks: "all"
+
+producerConfig:
+  threadCount: 1
+  rateLimit: 5120
+  messageSizeBytes: 10240
+  topicName: test-topic-10KB-pt4
+  batchSize: 100
+
+consumerConfig:
+  threadCount: 1
+  topicName: test-topic-10KB-pt4
+  consumerGroup: test-group
+  batchSize: 100
+  pollTimeoutMs: 1000
+
+testConfig:
+  durationMs: 300000
+  warmupMs: 30000
+  targetPartitions: 4
+  enableProducer: true
+  enableConsumer: true
