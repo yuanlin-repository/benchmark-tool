@@ -70,6 +70,8 @@ public class RocketMQDriver implements Driver {
             builder.setNamespace((String) config.get("namespace"));
         }
 
+        builder.enableSsl(false);
+
         this.clientConfiguration = builder.build();
 
         logger.info("RocketMQDriver initialized with proxy endpoints: " + proxyEndpoints);
