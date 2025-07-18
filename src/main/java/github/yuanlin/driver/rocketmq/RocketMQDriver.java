@@ -26,6 +26,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -164,6 +165,7 @@ public class RocketMQDriver implements Driver {
 
             future.whenComplete((sendReceipt, throwable) -> {
                 if (throwable != null) {
+                    logger.log(Level.WARNING, throwable.getMessage());
                     callback.onException();
                 } else {
                     callback.onCompletion();

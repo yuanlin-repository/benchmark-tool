@@ -477,7 +477,6 @@ public class BenchmarkWorker {
 
         @Override
         public void onException() {
-            logger.info("Producer Execute onCompletion");
             if (recordStats) {
                 localCollector.incrementCounter("producer.error");
                 prometheusCollector.recordProducerError(
