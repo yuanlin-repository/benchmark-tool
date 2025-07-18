@@ -235,10 +235,6 @@ public class RocketMQDriver implements Driver {
                         String key = messageView.getKeys() != null ?
                                 messageView.getKeys().stream().findFirst().orElse("nokey") : "nokey";
 
-                        logger.info("Debug: received messageView = " + messageView);
-                        logger.info("Debug: keys = " + messageView.getKeys());
-                        logger.info("Debug: body = " + messageView.getBody());
-
                         try {
                             long receiveTime = System.currentTimeMillis();
 
