@@ -1,9 +1,5 @@
 package github.yuanlin.core;
 
-import org.apache.kafka.clients.producer.Callback;
-
-import java.util.concurrent.Future;
-
 /**
  * @author yuanlin.zhou
  * @date 2025/7/9 12:42

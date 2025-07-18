@@ -3,7 +3,6 @@ package github.yuanlin.worker;
 import github.yuanlin.core.*;
 import github.yuanlin.metrics.PrometheusMetricsCollector;
 import github.yuanlin.metrics.LocalMetricsCollector;
-import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.RecordMetadata;
 
 import com.google.common.util.concurrent.RateLimiter;
@@ -462,29 +461,26 @@ public class BenchmarkWorker {
             this.prometheusCollector = prometheusCollector;
         }
 
-        public void onCompletion(RecordMetadata metadata, Exception exception) {
+        @Override
+        public void onCompletion() {
+            long latency = System.currentTimeMillis() - start;
 
-            // It will only be counted when the sending is successful, otherwise the number of sent records may be
-            // magically printed when the sending fails.
-            if (exception == null) {
-                long latency = System.currentTimeMillis() - start;
+            if (recordStats) {
+                localCollector.incrementCounter("producer.total");
+                localCollector.incrementCounter("producer.success");
+                localCollector.recordLatency("producer.latency", latency);
 
-                if (recordStats) {
-                    localCollector.incrementCounter("producer.total");
-                    localCollector.incrementCounter("producer.success");
-                    localCollector.recordLatency("producer.latency", latency);
-
-                    // 记录到Prometheus
-                    prometheusCollector.recordProducerMessageSent(topicName, workerId, latency);
-                }
+                // 记录到Prometheus
+                prometheusCollector.recordProducerMessageSent(topicName, workerId, latency);
             }
+        }
 
-            if (exception != null) {
-                if (recordStats) {
-                    localCollector.incrementCounter("producer.error");
-                    prometheusCollector.recordProducerError(
-                            topicName, workerId, "send_failed");
-                }
+        @Override
+        public void onException() {
+            if (recordStats) {
+                localCollector.incrementCounter("producer.error");
+                prometheusCollector.recordProducerError(
+                        topicName, workerId, "send_failed");
             }
         }
     }

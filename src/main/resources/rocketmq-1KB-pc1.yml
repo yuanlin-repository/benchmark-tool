@@ -1,0 +1,27 @@
+name: rocketmq-1KB-pc1
+driverClass: github.yuanlin.driver.rocketmq.RocketMQDriver
+driverConfig:
+  proxy.endpoints: localhost:8080,localhost:8081
+  request.timeout.ms: 30000
+  namespace: default
+
+producerConfig:
+  threadCount: 1
+  rateLimit: 100000
+  messageSizeBytes: 1024
+  topicName: test-topic-1KB
+  batchSize: 100
+
+consumerConfig:
+  threadCount: 1
+  topicName: test-topic-1KB
+  consumerGroup: test-group
+  batchSize: 100
+  pollTimeoutMs: 1000
+
+testConfig:
+  durationMs: 300000
+  warmupMs: 30000
+  targetPartitions: 1
+  enableProducer: true
+  enableConsumer: true

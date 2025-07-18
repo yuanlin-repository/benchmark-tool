@@ -1,6 +1,7 @@
 package github.yuanlin.driver.kafka;
 
 import github.yuanlin.core.*;
+import github.yuanlin.core.Callback;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.CreateTopicsResult;
@@ -18,7 +19,6 @@ import org.apache.kafka.common.serialization.StringSerializer;
 
 import java.time.Duration;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.logging.Logger;
 
@@ -108,18 +108,8 @@ public class KafkaDriver implements Driver {
             props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, driverConfig.get("bootstrap.servers"));
             props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
             props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
-
-            // 性能优化配置
-//            props.put(ProducerConfig.BATCH_SIZE_CONFIG, 16384);
-//            props.put(ProducerConfig.LINGER_MS_CONFIG, 1);
-//            props.put(ProducerConfig.BUFFER_MEMORY_CONFIG, 33554432);
-//            props.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, "lz4");
             props.put(ProducerConfig.ACKS_CONFIG, "all");
-//            props.put(ProducerConfig.RETRIES_CONFIG, 3);
-//            props.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, 5);
-//            props.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, true);
 
-            // 允许用户覆盖配置
             for (Map.Entry<String, Object> entry : driverConfig.entrySet()) {
                 if (entry.getKey().startsWith("producer.")) {
                     String key = entry.getKey().substring("producer.".length());
@@ -134,7 +124,16 @@ public class KafkaDriver implements Driver {
         public void sendAsync(byte[] message, Callback callback) throws Exception {
             long sendTime = System.currentTimeMillis();
             ProducerRecord<String, byte[]> record = new ProducerRecord<>(topicName, message);
-            producer.send(record, callback);
+            producer.send(record, new org.apache.kafka.clients.producer.Callback() {
+                @Override
+                public void onCompletion(RecordMetadata recordMetadata, Exception e) {
+                    if (e == null) {
+                        callback.onCompletion();
+                    } else {
+                        callback.onException();
+                    }
+                }
+            });
         }
 
         @Override
@@ -178,15 +177,7 @@ public class KafkaDriver implements Driver {
             props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
             props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
             props.put(ConsumerConfig.GROUP_ID_CONFIG, consumerGroup);
-//            props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-//            props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
             props.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, 500);      // 修正：合理的批量大小
-//            props.put(ConsumerConfig.FETCH_MIN_BYTES_CONFIG, 1024);      // 1KB
-//            props.put(ConsumerConfig.FETCH_MAX_WAIT_MS_CONFIG, 500);
-//            props.put(ConsumerConfig.FETCH_MAX_BYTES_CONFIG, 52428800);  // 50MB
-//            props.put(ConsumerConfig.MAX_PARTITION_FETCH_BYTES_CONFIG, 1048576); // 1MB
-//            props.put(ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG, 30000);
-//            props.put(ConsumerConfig.HEARTBEAT_INTERVAL_MS_CONFIG, 10000);
 
             // 允许用户覆盖配置
             for (Map.Entry<String, Object> entry : driverConfig.entrySet()) {
