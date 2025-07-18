@@ -229,7 +229,8 @@ public class RocketMQDriver implements Driver {
                     .setMessageListener(messageView -> {
 
                         ByteBuffer bodyBuffer = messageView.getBody();
-                        byte[] body = bodyBuffer != null ? bodyBuffer.array() : new byte[0];
+                        byte[] body = new byte[bodyBuffer.remaining()];
+                        bodyBuffer.get(body);
 
                         String key = messageView.getKeys() != null ?
                                 messageView.getKeys().stream().findFirst().orElse("nokey") : "nokey";

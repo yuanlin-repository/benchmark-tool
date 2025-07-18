@@ -7,7 +7,7 @@ driverConfig:
 
 producerConfig:
   threadCount: 1
-  rateLimit: 100000
+  rateLimit: 100
   messageSizeBytes: 1024
   topicName: test-topic-1KB
   batchSize: 100
