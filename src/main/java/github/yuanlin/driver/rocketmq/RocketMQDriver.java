@@ -65,6 +65,11 @@ public class RocketMQDriver implements Driver {
             builder.setRequestTimeout(Duration.ofSeconds(30));
         }
 
+        // 设置命名空间（可选）
+        if (config.containsKey("namespace")) {
+            builder.setNamespace((String) config.get("namespace"));
+        }
+
         builder.enableSsl(false);
 
         this.clientConfiguration = builder.build();
