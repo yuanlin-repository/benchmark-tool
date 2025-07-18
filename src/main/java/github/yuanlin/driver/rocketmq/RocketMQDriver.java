@@ -59,7 +59,7 @@ public class RocketMQDriver implements Driver {
 
         // 设置请求超时
         if (config.containsKey("request.timeout.ms")) {
-            builder.setRequestTimeout(Duration.ofMillis((Long) config.get("request.timeout.ms")));
+            builder.setRequestTimeout(Duration.ofMillis(((Number)config.get("request.timeout.ms")).longValue()));
         } else {
             builder.setRequestTimeout(Duration.ofSeconds(30));
         }

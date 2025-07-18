@@ -188,10 +188,6 @@ public class BenchmarkCoordinator {
         if (inputStream == null) {
             throw new IOException("Resource file " + configFilePath + " not found in classpath.");
         }
-//        File configFile = new File(configFilePath);
-//        if (!configFile.exists()) {
-//            throw new IOException("Config file not found: " + configFilePath);
-//        }
 
         return yamlMapper.readValue(inputStream, WorkloadConfig.class);
     }
