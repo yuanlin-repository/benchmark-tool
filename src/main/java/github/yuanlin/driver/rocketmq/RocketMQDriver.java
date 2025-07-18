@@ -18,6 +18,7 @@ import org.apache.rocketmq.shaded.com.google.common.util.concurrent.Futures;
 import org.apache.rocketmq.shaded.com.google.common.util.concurrent.ListenableFuture;
 import org.apache.rocketmq.shaded.com.google.common.util.concurrent.MoreExecutors;
 
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.*;
@@ -59,7 +60,7 @@ public class RocketMQDriver implements Driver {
 
         // 设置请求超时
         if (config.containsKey("request.timeout.ms")) {
-            builder.setRequestTimeout(Duration.ofMillis(((Number)config.get("request.timeout.ms")).longValue()));
+            builder.setRequestTimeout(Duration.ofMillis(((Number) config.get("request.timeout.ms")).longValue()));
         } else {
             builder.setRequestTimeout(Duration.ofSeconds(30));
         }
@@ -224,22 +225,33 @@ public class RocketMQDriver implements Driver {
                     .setConsumerGroup(consumerGroup)
                     .setSubscriptionExpressions(Collections.singletonMap(topicName, filterExpression))
                     .setMessageListener(messageView -> {
+
+                        ByteBuffer bodyBuffer = messageView.getBody();
+                        byte[] body = bodyBuffer != null ? bodyBuffer.array() : new byte[0];
+
+                        String key = messageView.getKeys() != null ?
+                                messageView.getKeys().stream().findFirst().orElse("nokey") : "nokey";
+
+                        System.out.println("Debug: received messageView = " + messageView);
+                        System.out.println("Debug: keys = " + messageView.getKeys());
+                        System.out.println("Debug: body = " + messageView.getBody());
+
                         try {
                             long receiveTime = System.currentTimeMillis();
 
                             github.yuanlin.core.ConsumeResult result = new github.yuanlin.core.ConsumeResult(
-                                    messageView.getBody().array(),
+                                    body,
                                     messageView.getBornTimestamp(),
                                     receiveTime,
-                                    messageView.getKeys().stream().findFirst().orElse("nokey"),
-                            0, // RocketMQ 5.x 不直接暴露队列ID
+                                    key,
+                                    0, // RocketMQ 5.x 不直接暴露队列ID
                                     0  // RocketMQ 5.x 不直接暴露偏移量
                             );
 
                             messageQueue.offer(result);
                             return ConsumeResult.SUCCESS;
                         } catch (Exception e) {
-                            logger.warning("Failed to process message: " + e.getMessage());
+                            logger.warning("Failed to process message: " + e);
                             return ConsumeResult.FAILURE;
                         }
                     })
