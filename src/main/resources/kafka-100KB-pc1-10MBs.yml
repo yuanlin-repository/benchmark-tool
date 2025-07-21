@@ -6,7 +6,7 @@ driverConfig:
 
 producerConfig:
   threadCount: 1
-  rateLimit: 512
+  rateLimit: 102
   messageSizeBytes: 102400
   topicName: test-topic-100KB
   batchSize: 100
@@ -19,8 +19,8 @@ consumerConfig:
   pollTimeoutMs: 1000
 
 testConfig:
-  durationMs: 300000
-  warmupMs: 30000
+  durationMs: 60000
+  warmupMs: 10000
   targetPartitions: 1
   enableProducer: true
   enableConsumer: true

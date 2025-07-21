@@ -1,4 +1,4 @@
-name: kafka-10KB-pt8
+name: kafka-10KB-pc1
 driverClass: github.yuanlin.driver.kafka.KafkaDriver
 driverConfig:
   bootstrap.servers: "localhost:9092"
@@ -6,21 +6,21 @@ driverConfig:
 
 producerConfig:
   threadCount: 1
-  rateLimit: 5120
+  rateLimit: 1024
   messageSizeBytes: 10240
-  topicName: test-topic-10KB-pt8
+  topicName: test-topic-10KB-pt1
   batchSize: 100
 
 consumerConfig:
   threadCount: 1
-  topicName: test-topic-10KB-pt8
+  topicName: test-topic-10KB-pt1
   consumerGroup: test-group
   batchSize: 100
   pollTimeoutMs: 1000
 
 testConfig:
-  durationMs: 300000
-  warmupMs: 30000
-  targetPartitions: 8
+  durationMs: 60000
+  warmupMs: 10000
+  targetPartitions: 1
   enableProducer: true
   enableConsumer: true
