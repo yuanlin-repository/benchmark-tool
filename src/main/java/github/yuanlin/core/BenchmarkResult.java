@@ -84,6 +84,11 @@ public class BenchmarkResult {
         private double averageLatencyMs;
         private double throughputMsgPerSec;
 
+        // New percentile latency fields
+        private long p50LatencyMs;
+        private long p90LatencyMs;
+        private long p99LatencyMs;
+
         // Getters and Setters
         public long getTotalMessages() {
             return totalMessages;
@@ -107,6 +112,30 @@ public class BenchmarkResult {
 
         public void setThroughputMsgPerSec(double throughputMsgPerSec) {
             this.throughputMsgPerSec = throughputMsgPerSec;
+        }
+
+        public long getP50LatencyMs() {
+            return p50LatencyMs;
+        }
+
+        public void setP50LatencyMs(long p50LatencyMs) {
+            this.p50LatencyMs = p50LatencyMs;
+        }
+
+        public long getP90LatencyMs() {
+            return p90LatencyMs;
+        }
+
+        public void setP90LatencyMs(long p90LatencyMs) {
+            this.p90LatencyMs = p90LatencyMs;
+        }
+
+        public long getP99LatencyMs() {
+            return p99LatencyMs;
+        }
+
+        public void setP99LatencyMs(long p99LatencyMs) {
+            this.p99LatencyMs = p99LatencyMs;
         }
     }
 

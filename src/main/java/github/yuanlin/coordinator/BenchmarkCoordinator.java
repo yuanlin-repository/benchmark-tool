@@ -14,11 +14,12 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Logger;
 import java.util.logging.Level;
+import java.util.stream.Collectors;
 
 /**
  * @author yuanlin.zhou
  * @date 2025/7/10 15:05
- * @description TODO
+ * @description Enhanced BenchmarkCoordinator with percentile latency aggregation
  */
 public class BenchmarkCoordinator {
     private static final Logger logger = Logger.getLogger(BenchmarkCoordinator.class.getName());
@@ -104,26 +105,6 @@ public class BenchmarkCoordinator {
             logger.log(Level.INFO, "/------------------- Finish " + configFilePath + "test -------------/");
             Thread.sleep(10000);
         }
-//        if (running.compareAndSet(false, true)) {
-//            logger.info("Starting multiple benchmarks");
-//
-//            try {
-//                List<WorkloadConfig> configs = new ArrayList<>();
-//                for (String configPath : configFilePaths) {
-//                    configs.add(parseConfig(configPath));
-//                }
-//
-//                // 并行运行多个测试
-//                runBenchmarksParallel(configs);
-//
-//            } catch (Exception e) {
-//                logger.log(Level.SEVERE, "Multiple benchmarks failed", e);
-//                throw e;
-//            } finally {
-//                stopAllWorkers();
-//                running.set(false);
-//            }
-//        }
     }
 
     /**
@@ -336,53 +317,156 @@ public class BenchmarkCoordinator {
         logger.info("=== BENCHMARK SUMMARY ===");
 
         // 汇总生产者统计
-        long totalProducerMessages = 0;
-        long totalSuccessfulMessages = 0;
-        long totalFailedMessages = 0;
-        double totalProducerThroughput = 0;
-        List<Double> producerLatencies = new ArrayList<>();
+        ProducerAggregatedStats producerAggStats = aggregateProducerStats(results);
+        outputProducerSummary(producerAggStats);
 
         // 汇总消费者统计
-        long totalConsumerMessages = 0;
-        double totalConsumerThroughput = 0;
-        List<Double> consumerLatencies = new ArrayList<>();
+        ConsumerAggregatedStats consumerAggStats = aggregateConsumerStats(results);
+        outputConsumerSummary(consumerAggStats);
+
+        logger.info("=== END SUMMARY ===");
+    }
+
+    /**
+     * 汇总生产者统计信息
+     */
+    private ProducerAggregatedStats aggregateProducerStats(List<BenchmarkResult> results) {
+        ProducerAggregatedStats aggStats = new ProducerAggregatedStats();
 
         for (BenchmarkResult result : results) {
             if (result.getProducerStats() != null) {
                 BenchmarkResult.ProducerStats stats = result.getProducerStats();
-                totalProducerMessages += stats.getTotalMessages();
-                totalSuccessfulMessages += stats.getSuccessfulMessages();
-                totalFailedMessages += stats.getFailedMessages();
-                totalProducerThroughput += stats.getThroughputMsgPerSec();
-                producerLatencies.add(stats.getAverageLatencyMs());
-            }
 
-            if (result.getConsumerStats() != null) {
-                BenchmarkResult.ConsumerStats stats = result.getConsumerStats();
-                totalConsumerMessages += stats.getTotalMessages();
-                totalConsumerThroughput += stats.getThroughputMsgPerSec();
-                consumerLatencies.add(stats.getAverageLatencyMs());
+                aggStats.totalMessages += stats.getTotalMessages();
+                aggStats.successfulMessages += stats.getSuccessfulMessages();
+                aggStats.failedMessages += stats.getFailedMessages();
+                aggStats.totalThroughput += stats.getThroughputMsgPerSec();
+
+                // 收集所有延迟数据用于百分位数计算
+                aggStats.latencies.add(stats.getAverageLatencyMs());
+                if (stats.getP99LatencyMs() > 0) {
+                    aggStats.p99Latencies.add(stats.getP99LatencyMs());
+                }
             }
         }
 
-        // 输出汇总统计
+        return aggStats;
+    }
+
+    /**
+     * 汇总消费者统计信息
+     */
+    private ConsumerAggregatedStats aggregateConsumerStats(List<BenchmarkResult> results) {
+        ConsumerAggregatedStats aggStats = new ConsumerAggregatedStats();
+
+        for (BenchmarkResult result : results) {
+            if (result.getConsumerStats() != null) {
+                BenchmarkResult.ConsumerStats stats = result.getConsumerStats();
+
+                aggStats.totalMessages += stats.getTotalMessages();
+                aggStats.totalThroughput += stats.getThroughputMsgPerSec();
+
+                // 收集所有延迟数据用于百分位数计算
+                aggStats.latencies.add(stats.getAverageLatencyMs());
+
+                if (stats.getP50LatencyMs() > 0) {
+                    aggStats.p50Latencies.add((double) stats.getP50LatencyMs());
+                }
+                if (stats.getP90LatencyMs() > 0) {
+                    aggStats.p90Latencies.add((double) stats.getP90LatencyMs());
+                }
+                if (stats.getP99LatencyMs() > 0) {
+                    aggStats.p99Latencies.add((double) stats.getP99LatencyMs());
+                }
+            }
+        }
+
+        return aggStats;
+    }
+
+    /**
+     * 输出生产者汇总结果
+     */
+    private void outputProducerSummary(ProducerAggregatedStats stats) {
         logger.info("Producer Summary:");
-        logger.info("  Total Messages: " + totalProducerMessages);
-        logger.info("  Successful Messages: " + totalSuccessfulMessages);
-        logger.info("  Failed Messages: " + totalFailedMessages);
-        logger.info("  Total Throughput: " + totalProducerThroughput + " msg/sec");
-        logger.info("  Average Latency: " +
-                (producerLatencies.isEmpty() ? 0 :
-                        producerLatencies.stream().mapToDouble(d -> d).average().orElse(0)) + " ms");
+        logger.info("  Total Messages: " + stats.totalMessages);
+        logger.info("  Successful Messages: " + stats.successfulMessages);
+        logger.info("  Failed Messages: " + stats.failedMessages);
+        logger.info("  Total Throughput: " + String.format("%.2f", stats.totalThroughput) + " msg/sec");
 
+        if (!stats.latencies.isEmpty()) {
+            double avgLatency = stats.latencies.stream().mapToDouble(d -> d).average().orElse(0);
+            logger.info("  Average Latency: " + String.format("%.2f", avgLatency) + " ms");
+        }
+
+        if (!stats.p99Latencies.isEmpty()) {
+            PercentileStats percentiles = calculatePercentiles(stats.p99Latencies);
+            logger.info("  P50 Latency: " + String.format("%.2f", percentiles.p50) + " ms");
+            logger.info("  P90 Latency: " + String.format("%.2f", percentiles.p90) + " ms");
+            logger.info("  P99 Latency: " + String.format("%.2f", percentiles.p99) + " ms");
+        }
+    }
+
+    /**
+     * 输出消费者汇总结果
+     */
+    private void outputConsumerSummary(ConsumerAggregatedStats stats) {
         logger.info("Consumer Summary:");
-        logger.info("  Total Messages: " + totalConsumerMessages);
-        logger.info("  Total Throughput: " + totalConsumerThroughput + " msg/sec");
-        logger.info("  Average Latency: " +
-                (consumerLatencies.isEmpty() ? 0 :
-                        consumerLatencies.stream().mapToDouble(d -> d).average().orElse(0)) + " ms");
+        logger.info("  Total Messages: " + stats.totalMessages);
+        logger.info("  Total Throughput: " + String.format("%.2f", stats.totalThroughput) + " msg/sec");
 
-        logger.info("=== END SUMMARY ===");
+        if (!stats.latencies.isEmpty()) {
+            double avgLatency = stats.latencies.stream().mapToDouble(d -> d).average().orElse(0);
+            logger.info("  Average Latency: " + String.format("%.2f", avgLatency) + " ms");
+        }
+
+        // 输出聚合的百分位数延迟
+        if (!stats.p50Latencies.isEmpty()) {
+            PercentileStats p50Stats = calculatePercentiles(stats.p50Latencies);
+            logger.info("  Aggregated P50 Latency:");
+            logger.info("    Min: " + String.format("%.2f", Collections.min(stats.p50Latencies)) + " ms");
+            logger.info("    Max: " + String.format("%.2f", Collections.max(stats.p50Latencies)) + " ms");
+            logger.info("    Avg: " + String.format("%.2f", stats.p50Latencies.stream().mapToDouble(d -> d).average().orElse(0)) + " ms");
+        }
+
+        if (!stats.p90Latencies.isEmpty()) {
+            PercentileStats p90Stats = calculatePercentiles(stats.p90Latencies);
+            logger.info("  Aggregated P90 Latency:");
+            logger.info("    Min: " + String.format("%.2f", Collections.min(stats.p90Latencies)) + " ms");
+            logger.info("    Max: " + String.format("%.2f", Collections.max(stats.p90Latencies)) + " ms");
+            logger.info("    Avg: " + String.format("%.2f", stats.p90Latencies.stream().mapToDouble(d -> d).average().orElse(0)) + " ms");
+        }
+
+        if (!stats.p99Latencies.isEmpty()) {
+            PercentileStats p99Stats = calculatePercentiles(stats.p99Latencies);
+            logger.info("  Aggregated P99 Latency:");
+            logger.info("    Min: " + String.format("%.2f", Collections.min(stats.p99Latencies)) + " ms");
+            logger.info("    Max: " + String.format("%.2f", Collections.max(stats.p99Latencies)) + " ms");
+            logger.info("    Avg: " + String.format("%.2f", stats.p99Latencies.stream().mapToDouble(d -> d).average().orElse(0)) + " ms");
+        }
+    }
+
+    /**
+     * 计算延迟数据的百分位数
+     */
+    private PercentileStats calculatePercentiles(List<Double> latencies) {
+        if (latencies.isEmpty()) {
+            return new PercentileStats(0, 0, 0);
+        }
+
+        List<Double> sortedLatencies = new ArrayList<>(latencies);
+        Collections.sort(sortedLatencies);
+
+        int size = sortedLatencies.size();
+        int p50Index = Math.max(0, (int) Math.ceil(size * 0.5) - 1);
+        int p90Index = Math.max(0, (int) Math.ceil(size * 0.9) - 1);
+        int p99Index = Math.max(0, (int) Math.ceil(size * 0.99) - 1);
+
+        double p50 = sortedLatencies.get(p50Index);
+        double p90 = sortedLatencies.get(p90Index);
+        double p99 = sortedLatencies.get(p99Index);
+
+        return new PercentileStats(p50, p90, p99);
     }
 
     private String formatResult(BenchmarkResult result) {
@@ -394,15 +478,19 @@ public class BenchmarkCoordinator {
             sb.append("  Producer - Messages: ").append(stats.getTotalMessages())
                     .append(", Success: ").append(stats.getSuccessfulMessages())
                     .append(", Failed: ").append(stats.getFailedMessages())
-                    .append(", Throughput: ").append(stats.getThroughputMsgPerSec()).append(" msg/sec")
-                    .append(", Avg Latency: ").append(stats.getAverageLatencyMs()).append(" ms\n");
+                    .append(", Throughput: ").append(String.format("%.2f", stats.getThroughputMsgPerSec())).append(" msg/sec")
+                    .append(", Avg Latency: ").append(String.format("%.2f", stats.getAverageLatencyMs())).append(" ms")
+                    .append(", P99 Latency: ").append(String.format("%.2f", stats.getP99LatencyMs())).append(" ms\n");
         }
 
         if (result.getConsumerStats() != null) {
             BenchmarkResult.ConsumerStats stats = result.getConsumerStats();
             sb.append("  Consumer - Messages: ").append(stats.getTotalMessages())
-                    .append(", Throughput: ").append(stats.getThroughputMsgPerSec()).append(" msg/sec")
-                    .append(", Avg Latency: ").append(stats.getAverageLatencyMs()).append(" ms\n");
+                    .append(", Throughput: ").append(String.format("%.2f", stats.getThroughputMsgPerSec())).append(" msg/sec")
+                    .append(", Avg Latency: ").append(String.format("%.2f", stats.getAverageLatencyMs())).append(" ms")
+                    .append(", P50: ").append(String.format("%.2f", (double) stats.getP50LatencyMs())).append(" ms")
+                    .append(", P90: ").append(String.format("%.2f", (double) stats.getP90LatencyMs())).append(" ms")
+                    .append(", P99: ").append(String.format("%.2f", (double) stats.getP99LatencyMs())).append(" ms\n");
         }
 
         return sb.toString();
@@ -428,5 +516,44 @@ public class BenchmarkCoordinator {
 
     private String generateWorkerId(String configName) {
         return configName + "-" + UUID.randomUUID().toString().substring(0, 8);
+    }
+
+    /**
+     * 生产者聚合统计数据
+     */
+    private static class ProducerAggregatedStats {
+        long totalMessages = 0;
+        long successfulMessages = 0;
+        long failedMessages = 0;
+        double totalThroughput = 0;
+        List<Double> latencies = new ArrayList<>();
+        List<Double> p99Latencies = new ArrayList<>();
+    }
+
+    /**
+     * 消费者聚合统计数据
+     */
+    private static class ConsumerAggregatedStats {
+        long totalMessages = 0;
+        double totalThroughput = 0;
+        List<Double> latencies = new ArrayList<>();
+        List<Double> p50Latencies = new ArrayList<>();
+        List<Double> p90Latencies = new ArrayList<>();
+        List<Double> p99Latencies = new ArrayList<>();
+    }
+
+    /**
+     * 百分位数统计数据
+     */
+    private static class PercentileStats {
+        final double p50;
+        final double p90;
+        final double p99;
+
+        public PercentileStats(double p50, double p90, double p99) {
+            this.p50 = p50;
+            this.p90 = p90;
+            this.p99 = p99;
+        }
     }
 }

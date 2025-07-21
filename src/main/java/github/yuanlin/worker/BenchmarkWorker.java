@@ -7,18 +7,16 @@ import org.apache.kafka.clients.producer.RecordMetadata;
 
 import com.google.common.util.concurrent.RateLimiter;
 
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.List;
-import java.util.ArrayList;
-import java.util.Random;
 import java.util.logging.Logger;
 import java.util.logging.Level;
 
 /**
  * @author yuanlin.zhou
  * @date 2025/7/10 14:57
- * @description Benchmark Worker with improved rate limiting using Guava RateLimiter
+ * @description Benchmark Worker with improved rate limiting using Guava RateLimiter and percentile latency calculation
  */
 public class BenchmarkWorker {
     private static final Logger logger = Logger.getLogger(BenchmarkWorker.class.getName());
@@ -35,6 +33,9 @@ public class BenchmarkWorker {
     private final List<ProducerTask> producerTasks = new ArrayList<>();
     private final List<ConsumerTask> consumerTasks = new ArrayList<>();
     private final List<Future<?>> futures = new ArrayList<>();
+
+    // 用于收集消费者延迟数据的线程安全列表
+    private final List<Long> consumerLatencies = Collections.synchronizedList(new ArrayList<>());
 
     public BenchmarkWorker(String workerId, WorkloadConfig config, Driver driver,
                            PrometheusMetricsCollector prometheusCollector) {
@@ -56,6 +57,9 @@ public class BenchmarkWorker {
     public void start() throws Exception {
         if (running.compareAndSet(false, true)) {
             logger.info("Starting benchmark worker: " + workerId);
+
+            // 清空之前的延迟数据
+            consumerLatencies.clear();
 
             // 创建Topic
             if (config.getTestConfig().isEnableProducer()) {
@@ -230,10 +234,60 @@ public class BenchmarkWorker {
         stats.setTotalMessages(totalMessages);
         stats.setAverageLatencyMs(latencyStats.getAverage());
 
+        // 计算百分位数延迟
+        PercentileLatency percentileLatency = calculatePercentileLatency();
+        stats.setP50LatencyMs(percentileLatency.p50);
+        stats.setP90LatencyMs(percentileLatency.p90);
+        stats.setP99LatencyMs(percentileLatency.p99);
+
         long duration = config.getTestConfig().getDurationMs();
         stats.setThroughputMsgPerSec(totalMessages * 1000.0 / duration);
 
         return stats;
+    }
+
+    /**
+     * 计算消费者延迟的百分位数
+     */
+    private PercentileLatency calculatePercentileLatency() {
+        if (consumerLatencies.isEmpty()) {
+            return new PercentileLatency(0, 0, 0);
+        }
+
+        // 创建副本并排序
+        List<Long> sortedLatencies = new ArrayList<>(consumerLatencies);
+        Collections.sort(sortedLatencies);
+
+        int size = sortedLatencies.size();
+
+        // 计算百分位数索引
+        int p50Index = Math.max(0, (int) Math.ceil(size * 0.5) - 1);
+        int p90Index = Math.max(0, (int) Math.ceil(size * 0.9) - 1);
+        int p99Index = Math.max(0, (int) Math.ceil(size * 0.99) - 1);
+
+        long p50 = sortedLatencies.get(p50Index);
+        long p90 = sortedLatencies.get(p90Index);
+        long p99 = sortedLatencies.get(p99Index);
+
+        logger.info(String.format("Calculated consumer latency percentiles - P50: %dms, P90: %dms, P99: %dms (from %d samples)",
+                p50, p90, p99, size));
+
+        return new PercentileLatency(p50, p90, p99);
+    }
+
+    /**
+     * 百分位数延迟数据结构
+     */
+    private static class PercentileLatency {
+        final long p50;
+        final long p90;
+        final long p99;
+
+        public PercentileLatency(long p50, long p90, long p99) {
+            this.p50 = p50;
+            this.p90 = p90;
+            this.p99 = p99;
+        }
     }
 
     /**
@@ -346,7 +400,7 @@ public class BenchmarkWorker {
     }
 
     /**
-     * 消费者任务
+     * 消费者任务 - 增强版本，收集延迟数据用于百分位数计算
      */
     private class ConsumerTask implements Runnable {
         private final BenchmarkConsumer consumer;
@@ -414,6 +468,9 @@ public class BenchmarkWorker {
                 if (recordStats) {
                     localCollector.incrementCounter("consumer.total");
                     localCollector.recordLatency("consumer.latency", latency);
+
+                    // 收集延迟数据用于百分位数计算
+                    consumerLatencies.add(latency);
 
                     // 记录到Prometheus
                     prometheusCollector.recordConsumerMessageReceived(
