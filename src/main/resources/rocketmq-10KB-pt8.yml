@@ -1,4 +1,4 @@
-name: rocketmq-10KB-pc3
+name: rocketmq-10KB-pt8
 driverClass: github.yuanlin.driver.rocketmq.RocketMQDriver
 driverConfig:
   proxy.endpoints: localhost:8081
@@ -6,14 +6,14 @@ driverConfig:
   namespace: default
 
 producerConfig:
-  threadCount: 3
+  threadCount: 1
   rateLimit: 10000
   messageSizeBytes: 10240
   topicName: test-topic-10KB
   batchSize: 100
 
 consumerConfig:
-  threadCount: 3
+  threadCount: 1
   topicName: test-topic-10KB
   consumerGroup: test-group
   batchSize: 100
@@ -22,6 +22,6 @@ consumerConfig:
 testConfig:
   durationMs: 60000
   warmupMs: 10000
-  targetPartitions: 1
+  targetPartitions: 8
   enableProducer: true
   enableConsumer: true
