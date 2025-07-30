@@ -85,7 +85,7 @@ public class PrometheusMetricsCollector {
                 .name("consumer_latency_ms")
                 .help("Consumer message latency in milliseconds")
                 .labelNames("topic", "worker_id", "consumer_group")
-                .buckets(1, 5, 10, 25, 50, 75, 100, 250, 500, 750, 1000, 2500, 5000, 7500, 10000)
+                .buckets(1, 5, 10, 25, 50, 75, 100, 250, 500, 750, 1000, 2500, 5000, 7500, 10000, 20000, 40000, 60000, 80000, 100000, 120000, 140000, 160000,180000,200000)
                 .register();
 
         consumerThroughput = Gauge.build()
