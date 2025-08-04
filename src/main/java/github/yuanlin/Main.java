@@ -17,7 +17,7 @@ public class Main {
 
         try {
             // 创建协调器
-            BenchmarkCoordinator coordinator = new BenchmarkCoordinator(8085);
+            BenchmarkCoordinator coordinator = new BenchmarkCoordinator(8081);
 
             if (args.length == 1) {
                 // 单个测试

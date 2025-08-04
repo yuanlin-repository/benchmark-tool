@@ -9,12 +9,12 @@ producerConfig:
   threadCount: 5
   rateLimit: 9000
   messageSizeBytes: 10240
-  topicName: test-topic-10KB
+  topicName: test-topic
   batchSize: 100
 
 consumerConfig:
   threadCount: 5
-  topicName: test-topic-10KB
+  topicName: test-topic
   consumerGroup: test-group
   batchSize: 100
   pollTimeoutMs: 1000
