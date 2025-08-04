@@ -17,7 +17,7 @@ consumerConfig:
   topicName: test-topic-100B
   consumerGroup: test-group
   batchSize: 100
-  pollTimeoutMs: 10
+  pollTimeoutMs: 5
 
 testConfig:
   durationMs: 60000
