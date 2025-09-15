@@ -11,7 +11,7 @@ A tool to benchmarking messaging systems.
 
 ## High Light
 Existing experiments exhibit both common and individual limitations:
-- Outdated versions and lack of feature coverage: Benchmark studies on Kafka, RocketMQ are generally based on older versions and fail to reflect recent architectural and functional changes. For instance, Kafka has deprecated Zookeeper in favor of KRaft for metadata and cluster management, yet most studies rely on Zookeeper. RocketMQ 5.0 introduced a cloud-native decoupled architecture with a proxy layer that separates client access from broker storage, which has not been considered in prior benchmarks.
+- Outdated versions and lack of feature coverage: Benchmark studies on Kafka, RocketMQ are generally based on older versions and fail to reflect recent architectural and functional changes. **For instance, Kafka has deprecated Zookeeper in favor of KRaft for metadata and cluster management, yet most studies rely on Zookeeper. RocketMQ 5.0 introduced a cloud-native decoupled architecture with a proxy layer that separates client access from broker storage, which has not been considered in prior benchmarks.**
 - Testing environment limitations and lack of modern architecture support: Many experiments were conducted on private machines or developer laptops (e.g., MacBook), lacking evaluations under containerized environments (e.g., Docker) or cloud platforms (e.g., AWS, Azure).
 - Lack of standardization and reproducibility: The absence of unified benchmarking procedures and publicly accessible datasets affects the comparability and reproducibility of results across studies.
 
