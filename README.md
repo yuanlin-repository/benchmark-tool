@@ -2,18 +2,33 @@
 
 A tool to benchmarking messaging systems.
 
+## Technology Stack
+- Language: Java17
+- Message Queues: Kafka(4.0) and RocketMQ(5.3.2)
+- Monitoring: Prometheus and Grafana
+- Dependencies management: Maven
+- IDE: IntelliJ IDEA
+
+## High Light
+Existing experiments exhibit both common and individual limitations:
+- Outdated versions and lack of feature coverage: Benchmark studies on Kafka, RocketMQ are generally based on older versions and fail to reflect recent architectural and functional changes. For instance, Kafka has deprecated Zookeeper in favor of KRaft for metadata and cluster management, yet most studies rely on Zookeeper. RocketMQ 5.0 introduced a cloud-native decoupled architecture with a proxy layer that separates client access from broker storage, which has not been considered in prior benchmarks.
+- Testing environment limitations and lack of modern architecture support: Many experiments were conducted on private machines or developer laptops (e.g., MacBook), lacking evaluations under containerized environments (e.g., Docker) or cloud platforms (e.g., AWS, Azure).
+- Lack of standardization and reproducibility: The absence of unified benchmarking procedures and publicly accessible datasets affects the comparability and reproducibility of results across studies.
+
+
+
 ## Architecture
 <img width="1191" height="922" alt="Benchmark Tool Architecture drawio" src="https://github.com/user-attachments/assets/c8273ad9-ce1f-4abe-b55e-c33e0d73f239" />
 
 The architecture of the benchmarking tool is primarily comprises the following components:
-•	Coordinator: Responsible for parsing the workload configuration file, controlling the test lifecycle (start, stop), and invoking Workers to execute test tasks.
-•	Worker: Carries out the actual production, consumption, and metric collection tasks.
-•	Driver: Encapsulates operations for different messaging systems, including establishing connections, creating topics, and instantiating producers and consumers.
-•	BenchmarkProducer: Publishes messages to the messaging system.
-•	BenchmarkConsumer: Retrieves and consumes messages from the messaging system.
-•	Prometheus-Client: Collects metrics, stores them locally, and exposes an HTTP interface for the Prometheus-Server to scrape.
-•	Prometheus-Server: Scrapes the metrics exposed by the Workers.
-•	Grafana: Displays custom dashboards (e.g., latency histograms, throughput line charts, etc.).
+- Coordinator: Responsible for parsing the workload configuration file, controlling the test lifecycle (start, stop), and invoking Workers to execute test tasks.
+- Worker: Carries out the actual production, consumption, and metric collection tasks.
+- Driver: Encapsulates operations for different messaging systems, including establishing connections, creating topics, and instantiating producers and consumers.
+- BenchmarkProducer: Publishes messages to the messaging system.
+- BenchmarkConsumer: Retrieves and consumes messages from the messaging system.
+- Prometheus-Client: Collects metrics, stores them locally, and exposes an HTTP interface for the Prometheus-Server to scrape.
+- Prometheus-Server: Scrapes the metrics exposed by the Workers.
+- Grafana: Displays custom dashboards (e.g., latency histograms, throughput line charts, etc.).
 
 ## Project Structure
 
