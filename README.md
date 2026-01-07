@@ -9,7 +9,7 @@ A tool to benchmarking messaging systems.
 - Dependencies management: Maven
 - IDE: IntelliJ IDEA
 
-## High Light
+## Highlight
 Existing experiments exhibit both common and individual limitations:
 - Outdated versions and lack of feature coverage: Benchmark studies on Kafka, RocketMQ are generally based on older versions and fail to reflect recent architectural and functional changes. **For instance, Kafka has deprecated Zookeeper in favor of KRaft for metadata and cluster management, yet most studies rely on Zookeeper. RocketMQ 5.0 introduced a cloud-native decoupled architecture with a proxy layer that separates client access from broker storage, which has not been considered in prior benchmarks.**
 - Testing environment limitations and lack of modern architecture support: Many experiments were conducted on private machines or developer laptops (e.g., MacBook), lacking evaluations under containerized environments (e.g., Docker) or cloud platforms (e.g., AWS, Azure).
@@ -85,24 +85,22 @@ docker compose up -d
 4. (Optional)Config the grafana
 <img width="780" height="300" alt="image" src="https://github.com/user-attachments/assets/8f63d69f-96f2-484b-88be-ef2465ec031e" />
 
-1) login grafana admin
-2) add prometheus data source
-3) config grafana dashboard based on /benchmark-tool/grafana_dashboard.txt
-
-
-5. Choose workload file
+1) Login grafana admin
+2) Add prometheus data source
+3) Config grafana dashboard based on /benchmark-tool/grafana_dashboard.txt
+4) Choose workload file
 ```
 /benchmark-tool/src/main/resources/kafka-10KB-pc1.yml
 ```
 
-6. Start benchmark
+5) Start benchmark
 ```
 mvn exec:java \
   -Dexec.mainClass="github.yuanlin.Main" \
   -Dexec.args="kafka-10KB-pc1.yml"
 ```
 
-7. Wait for benchmark results
+6) Wait for benchmark results
 
 <img width="800" height="130" alt="image" src="https://github.com/user-attachments/assets/623be15e-bdc2-428e-ba95-45c8e8bfbc3e" />
 
